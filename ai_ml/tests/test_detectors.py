@@ -44,7 +44,11 @@ def test_detect_rules_empty_prompt():
 def test_predict_ml_benign_prompt():
     result = predict_ml("Explain what photosynthesis is.")
     assert result["label"] is None
-    assert result["confidence"] == 0.0
+    # With the trained model, confidence for a correctly-classified NORMAL
+    # prompt is the residual probability mass on malicious classes — expected
+    # to be low, but not necessarily exactly 0.0 (that exact value only held
+    # for the old keyword-heuristic fallback).
+    assert 0.0 <= result["confidence"] < 0.5
 
 
 def test_predict_ml_injection_prompt():
@@ -83,8 +87,11 @@ def test_detect_pii_invalid_credit_card_ignored():
 
 
 def test_detect_pii_multiple_entities_compound_severity():
+    # Note: 123-45-6789 is deliberately NOT used here — it's a well-known
+    # canonical example/placeholder SSN that Presidio's US_SSN recognizer
+    # blocklists on purpose (see pii_detector.py module docstring).
     single = detect_pii("My email is abc@gmail.com.")
-    combined = detect_pii("My email is abc@gmail.com. My SSN is 123-45-6789.")
+    combined = detect_pii("My email is abc@gmail.com. My SSN is 284-56-7891.")
     assert combined["data_leakage_severity"] >= single["data_leakage_severity"]
     assert len(combined["pii"]) == 2
 

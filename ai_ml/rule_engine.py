@@ -38,7 +38,7 @@ _RULES: List[Rule] = [
     Rule(
         name="instruction_override",
         pattern=re.compile(
-            r"\b(ignore|disregard|forget)\b.{0,30}\b(previous|prior|above|all)\b.{0,30}\b(instructions?|rules?|prompt)\b",
+            r"\b(ignore|disregard|forget)\b.{0,30}\b(your|previous|prior|above|all)\b.{0,30}\b(instructions?|rules?|prompt)\b",
             re.IGNORECASE,
         ),
         threat=THREAT_PROMPT_INJECTION,

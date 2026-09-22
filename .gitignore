@@ -6,3 +6,11 @@ venv/
 *.egg-info/
 
 *.db
+
+# Trained model checkpoints are reproducible artifacts (~260MB, over GitHub's
+# 100MB push limit) — regenerate with ai_ml/training/train_classifier.py.
+ai_ml/models/
+ai_ml/training/checkpoints/
+# Built training dataset (contains raw adversarial/NSFW jailbreak text pulled
+# from public forums at build time) — regenerate with ai_ml/training/build_dataset.py.
+ai_ml/training/data/

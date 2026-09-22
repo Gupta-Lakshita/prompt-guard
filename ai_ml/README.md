@@ -44,30 +44,50 @@ swap from heuristic to trained model — only the *inside* of `predict_ml()` and
 ### Dataset
 
 `ai_ml/training/build_dataset.py` builds a 3-class (NORMAL / PROMPT_INJECTION /
-JAILBREAK) dataset from:
+JAILBREAK) dataset from **4 of the 5 sources named in the project synopsis's
+own dataset table (Section 5.3)**, using the exact source→class role the
+synopsis assigns each one:
 
 - **deepset/prompt-injections** (Hugging Face) — 546 examples, binary
-  legit/injection labels. Legit → NORMAL, injection → PROMPT_INJECTION.
+  legit/injection labels. Legit → NORMAL, injection → PROMPT_INJECTION. Ref [15].
 - **TrustAIRLab/in-the-wild-jailbreak-prompts** (the dataset behind Shen et
   al., *"Do Anything Now"*) — 1,405 real-world jailbreak prompts collected
-  from Reddit/Discord/prompt-sharing sites; a random sample of 350 is used
-  for the JAILBREAK class (fixed seed, reproducible).
+  from Reddit/Discord/prompt-sharing sites; a random sample of 400 (the
+  synopsis's own target size) is used for the JAILBREAK class. Ref [5].
+- **JailbreakBench / JBB-Behaviors** (Hugging Face) — 100 harmful + 100
+  benign behaviours, used in full. Harmful → JAILBREAK, benign → NORMAL,
+  per the synopsis's "primary labelled jailbreak/benign pair set" role. Ref [4].
+- **AdvBench** (Zou et al.; fetched from the original `llm-attacks` GitHub
+  release CSV — the Hugging Face mirror is gated) — 520 harmful/adversarial
+  instructions; 250 sampled (the synopsis's own target size) → PROMPT_INJECTION,
+  per the synopsis's "adversarial-suffix and harmful-instruction style
+  injection examples" role. Ref [3].
+- **XSTest** (Hugging Face, `Paul/XSTest`) — only the 250-example "safe"
+  subset is used, as NORMAL, specifically for the over-refusal/false-positive
+  reduction purpose XSTest was built for (Section 3.1). The 200-example
+  "unsafe" subset is harmful-content requests, not injection/jailbreak
+  patterns, so it's deliberately **not** folded into PROMPT_INJECTION/
+  JAILBREAK — that would mislabel a different threat class as this
+  classifier's target. Ref [7].
 - ~40 hand-written benign prompts, including everyday task prompts and,
   after an evaluation finding (see Known limitations below), prompts that
   mention contact info in an ordinary, non-adversarial context (e.g. *"My
   email is john.doe@example.com, please send the invoice there"*) — added
   specifically to reduce a PII-triggers-false-injection-flag failure mode.
+- **HarmBench is intentionally not included** — the synopsis itself reserves
+  it for adversarial/red-team evaluation from the Minor Project stage
+  onward (Section 5.3), not Micro-stage classifier training.
 
-After deduplication and length filtering: **1,048 examples** — NORMAL 441,
-JAILBREAK 344, PROMPT_INJECTION 263 — split **70/15/15**, stratified by class
-(train 733 / val 157 / test 158). The built CSVs are not committed to git
+After deduplication and length filtering: **1,793 examples** — NORMAL 791,
+PROMPT_INJECTION 508, JAILBREAK 494 — split **70/15/15**, stratified by class
+(train 1,255 / val 269 / test 269). The built CSVs are not committed to git
 (see below); re-run `build_dataset.py` to regenerate the exact same split.
 
-This is a smaller corpus than the ~3,900-prompt target in the project
-synopsis (Section 5.3), which also references JailbreakBench, AdvBench,
-deepset/prompt-injections and XSTest together. This module currently uses
-two of those five sources plus hand-written data — folding in the rest is
-the natural next step or increasing dataset for the Mini-stage.
+This is still smaller than the ~3,900-prompt target in the synopsis (which
+also folds in ~500 synthetic-PII prompts and ~300 more hand-curated benign
+prompts than are used here), but now covers 4 of 5 named sources at close to
+their specified sample sizes, up from 2 of 5 in an earlier pass (see git
+history for that ~1,048-example version and its evaluation numbers).
 
 ### Training
 

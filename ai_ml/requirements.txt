@@ -7,6 +7,7 @@
 #   pip install -r ai_ml/requirements.txt
 #   python -m spacy download en_core_web_sm
 
+requests>=2.31
 transformers>=4.44
 datasets>=2.20
 accelerate>=1.1.0

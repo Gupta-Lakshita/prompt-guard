@@ -1,24 +1,43 @@
 """Build the labelled NORMAL / PROMPT_INJECTION / JAILBREAK dataset used to
 fine-tune the DistilBERT classifier behind predict_ml().
 
-Sources:
+Sources, matching the role each is assigned in the project synopsis's own
+dataset table (Section 5.3):
   - deepset/prompt-injections (Hugging Face) -> NORMAL (label 0) and
-    PROMPT_INJECTION (label 1) examples. Cited in the project synopsis, Ref [15].
-  - TrustAIRLab/in-the-wild-jailbreak-prompts (Hugging Face), the dataset behind
-    Shen et al., "'Do Anything Now'" -> JAILBREAK examples. Cited in the
-    literature review, Ref [5].
-  - A small hand-written set of everyday benign task prompts, added to
-    NORMAL so the model also sees short, simple, non-forum-style text.
+    PROMPT_INJECTION (label 1) examples. Ref [15].
+  - TrustAIRLab/in-the-wild-jailbreak-prompts (Hugging Face), the dataset
+    behind Shen et al., "'Do Anything Now'" -> JAILBREAK examples
+    (400 sampled, per the synopsis's target). Ref [5].
+  - JailbreakBench / JBB-Behaviors (Hugging Face) -> harmful behaviours as
+    JAILBREAK, benign behaviours as NORMAL (100 + 100, full set). Ref [4].
+  - AdvBench (Zou et al., via the original llm-attacks GitHub release CSV —
+    not gated, unlike some HF mirrors) -> harmful/adversarial instructions
+    as PROMPT_INJECTION (250 sampled), per the synopsis's own
+    "adversarial-suffix and harmful-instruction style injection examples"
+    role assignment for this source. Ref [3].
+  - XSTest (Hugging Face, Paul/XSTest) -> only the "safe" subset (250 of 450)
+    used as NORMAL, specifically to reduce over-refusal / false positives on
+    benign-but-tricky prompts (the exact rationale XSTest was built for,
+    Section 3.1). The "unsafe" subset is harmful-content requests rather
+    than injection/jailbreak patterns, so it's deliberately NOT folded into
+    PROMPT_INJECTION/JAILBREAK — that would mislabel a different threat
+    class as this classifier's target classes. Ref [7].
+  - A small hand-written set of everyday benign task prompts (including some
+    that mention PII in an ordinary context), added to NORMAL so the model
+    also sees short, simple, non-forum-style text.
+  - HarmBench is intentionally NOT included — the synopsis itself reserves
+    it for adversarial/red-team evaluation from the Minor Project stage
+    onward (Section 5.3), not Micro-stage classifier training.
 
 Output: data/train.csv, data/val.csv, data/test.csv (70/15/15 stratified split),
 each with columns [text, label] where label in {NORMAL, PROMPT_INJECTION, JAILBREAK}.
 
-These CSVs are intentionally NOT committed to git: the jailbreak source corpus
-contains raw, real-world adversarial/NSFW text scraped from public forums,
-which is appropriate to use as local training data for a security classifier
-but not appropriate to publish verbatim inside the repository. Anyone can
-regenerate the exact same split by re-running this script (a fixed random
-seed is used throughout).
+These CSVs are intentionally NOT committed to git: the jailbreak/harmful
+source corpora contain raw, real-world adversarial/NSFW text, which is
+appropriate to use as local training data for a security classifier but not
+appropriate to publish verbatim inside the repository. Anyone can regenerate
+the exact same split by re-running this script (a fixed random seed is used
+throughout).
 """
 
 import os
@@ -26,6 +45,7 @@ import random
 import re
 
 import pandas as pd
+import requests
 from datasets import load_dataset
 from sklearn.model_selection import train_test_split
 
@@ -36,9 +56,14 @@ LABEL_NORMAL = "NORMAL"
 LABEL_INJECTION = "PROMPT_INJECTION"
 LABEL_JAILBREAK = "JAILBREAK"
 
-# Number of jailbreak examples to sample from the ~1400-example in-the-wild
-# corpus, to keep rough class balance with the injection class (~200-350).
-JAILBREAK_SAMPLE_SIZE = 350
+# Sample sizes chosen to track the synopsis's own "Approx. Size Used" column
+# (Section 5.3) as closely as each source's actual availability allows.
+JAILBREAK_SAMPLE_SIZE = 400
+ADVBENCH_SAMPLE_SIZE = 250
+ADVBENCH_URL = (
+    "https://raw.githubusercontent.com/llm-attacks/llm-attacks/main/"
+    "data/advbench/harmful_behaviors.csv"
+)
 
 _EXTRA_BENIGN_PROMPTS = [
     "Explain what photosynthesis is.",
@@ -121,12 +146,58 @@ def _load_jailbreak_source():
     return [{"text": p, "label": LABEL_JAILBREAK} for p in prompts]
 
 
+def _load_jailbreakbench_source():
+    ds = load_dataset("JailbreakBench/JBB-Behaviors", "behaviors")
+    rows = []
+    for example in ds["harmful"]:
+        text = _clean_text(example["Goal"])
+        if text:
+            rows.append({"text": text, "label": LABEL_JAILBREAK})
+    for example in ds["benign"]:
+        text = _clean_text(example["Goal"])
+        if text:
+            rows.append({"text": text, "label": LABEL_NORMAL})
+    return rows
+
+
+def _load_advbench_source():
+    response = requests.get(ADVBENCH_URL, timeout=30)
+    response.raise_for_status()
+    lines = response.text.splitlines()
+    reader = pd.read_csv(pd.io.common.StringIO("\n".join(lines)))
+    goals = [_clean_text(g) for g in reader["goal"].tolist() if isinstance(g, str) and g.strip()]
+
+    rng = random.Random(SEED)
+    if len(goals) > ADVBENCH_SAMPLE_SIZE:
+        goals = rng.sample(goals, ADVBENCH_SAMPLE_SIZE)
+    return [{"text": g, "label": LABEL_INJECTION} for g in goals]
+
+
+def _load_xstest_safe_source():
+    ds = load_dataset("Paul/XSTest")["train"]
+    rows = []
+    for example in ds:
+        if example["label"] != "safe":
+            continue
+        text = _clean_text(example["prompt"])
+        if text:
+            rows.append({"text": text, "label": LABEL_NORMAL})
+    return rows
+
+
 def _load_extra_benign():
     return [{"text": _clean_text(p), "label": LABEL_NORMAL} for p in _EXTRA_BENIGN_PROMPTS]
 
 
 def build_dataset() -> pd.DataFrame:
-    rows = _load_injection_source() + _load_jailbreak_source() + _load_extra_benign()
+    rows = (
+        _load_injection_source()
+        + _load_jailbreak_source()
+        + _load_jailbreakbench_source()
+        + _load_advbench_source()
+        + _load_xstest_safe_source()
+        + _load_extra_benign()
+    )
     df = pd.DataFrame(rows)
 
     before = len(df)

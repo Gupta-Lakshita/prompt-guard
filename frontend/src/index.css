@@ -1,0 +1,43 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-ink-950 text-text-primary antialiased;
+  font-feature-settings: "ss01";
+}
+
+::selection {
+  background: rgba(110, 123, 255, 0.35);
+}
+
+/* Visible keyboard focus everywhere, instead of the browser default outline shape */
+:focus-visible {
+  outline: 2px solid #6e7bff;
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* Thin, quiet scrollbar for the log table's horizontal scroll region */
+.thin-scroll::-webkit-scrollbar {
+  height: 6px;
+  width: 6px;
+}
+.thin-scroll::-webkit-scrollbar-thumb {
+  background: #242838;
+  border-radius: 4px;
+}

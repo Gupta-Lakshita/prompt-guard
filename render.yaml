@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: prompt-guard-backend
+    runtime: python
+    region: oregon
+    plan: standard
+    # Root stays the repo root (not backend/) — backend/main.py imports the
+    # ai_ml package as a sibling, so both must be on the same PYTHONPATH.
+    # NOTE: the trained DistilBERT checkpoint is gitignored (not in the repo —
+    # see ai_ml/README.md), so predict_ml() will use the keyword-heuristic
+    # fallback on a fresh deploy unless you also train it during the build.
+    # To deploy with the real trained model, uncomment the two training lines
+    # below (adds ~15-20 min to every build/deploy on this dataset size):
+    buildCommand: >
+      pip install -r backend/requirements.txt -r ai_ml/requirements.txt &&
+      python -m spacy download en_core_web_sm
+      # && python ai_ml/training/build_dataset.py
+      # && python ai_ml/training/train_classifier.py
+    startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: CORS_EXTRA_ORIGINS
+        value: https://YOUR-VERCEL-APP.vercel.app
+      - key: PYTHON_VERSION
+        value: 3.11.15
+      - key: DB_PATH
+        value: /var/data/promptguard.db
+    disk:
+      name: promptguard-data
+      mountPath: /var/data
+      sizeGB: 1

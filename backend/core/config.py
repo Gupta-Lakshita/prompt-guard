@@ -5,25 +5,30 @@ All tuneable values live here so nothing is hard-coded
 throughout the application.
 """
 
+import os
 from typing import List
 
 # ---------------------------------------------------------------------------
 # CORS
 # ---------------------------------------------------------------------------
-# Origins allowed to call the backend during local development.
-# Raima's React/Vite app defaults to localhost:5173; CRA defaults to 3000.
-# Update this list if the frontend port changes.
-CORS_ORIGINS: List[str] = [
+# Origins allowed to call the backend. Local dev defaults below always apply;
+# set CORS_EXTRA_ORIGINS (comma-separated) to add the deployed frontend's
+# origin (e.g. https://your-app.vercel.app) without touching this file.
+_LOCAL_ORIGINS: List[str] = [
     "http://localhost:5173",   # Vite default
     "http://localhost:3000",   # CRA default
     "http://localhost:4173",   # Vite preview build
 ]
+_extra = os.environ.get("CORS_EXTRA_ORIGINS", "")
+CORS_ORIGINS: List[str] = _LOCAL_ORIGINS + [o.strip() for o in _extra.split(",") if o.strip()]
 
 # ---------------------------------------------------------------------------
 # Database
 # ---------------------------------------------------------------------------
-# SQLite file path, relative to the working directory (repo root).
-DB_PATH: str = "promptguard.db"
+# SQLite file path. Defaults to the repo root for local dev; set DB_PATH to
+# point at a mounted persistent disk in production (e.g. Render), otherwise
+# logged events are lost on every redeploy/restart.
+DB_PATH: str = os.environ.get("DB_PATH", "promptguard.db")
 
 # ---------------------------------------------------------------------------
 # Decision thresholds (risk_score is 0–100)

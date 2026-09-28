@@ -116,25 +116,39 @@ def _predict_ml_model(prompt: str) -> dict:
 _INJECTION_KEYWORDS = [
     "ignore previous instructions",
     "ignore all previous",
+    "ignore the instructions above",
+    "ignore your previous instructions",
     "disregard the above",
     "disregard your instructions",
     "forget all previous",
     "forget previous instructions",
     "reveal the system prompt",
+    "reveal hidden instructions",
+    "reveal hidden information",
     "show me the system prompt",
     "override your instructions",
     "new instructions",
+    "ignore all safety policies",
+    "ignore the safety rules",
+    "disable safety restrictions",
+    "bypass safety restrictions",
 ]
 
 _JAILBREAK_KEYWORDS = [
     "dan mode",
     "do anything now",
     "no safety restrictions",
+    "no safety limitations",
     "act as an unrestricted",
+    "unrestricted ai",
     "pretend you have no",
     "jailbroken",
     "bypass your guidelines",
     "roleplay as someone with no rules",
+    "enable developer mode",
+    "you are now in developer mode",
+    "developer mode",
+    "ignore safety policies",
 ]
 
 

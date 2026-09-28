@@ -40,11 +40,27 @@ export default function DashboardPage() {
   const stats = useMemo(() => {
     const total = events.length;
     const count = (d) => events.filter((e) => e.decision === d).length;
+    const threatCounts = {
+      PROMPT_INJECTION: 0,
+      JAILBREAK: 0,
+      SENSITIVE_DATA: 0,
+      SOCIAL_ENGINEERING: 0,
+    };
+    events.forEach((e) => {
+      (e.threats || []).forEach((t) => {
+        if (threatCounts[t] !== undefined) {
+          threatCounts[t] += 1;
+        } else {
+          threatCounts[t] = (threatCounts[t] || 0) + 1;
+        }
+      });
+    });
     return {
       total,
       allow: count("ALLOW"),
       sanitize: count("SANITIZE"),
       block: count("BLOCK"),
+      threats: threatCounts,
     };
   }, [events]);
 
@@ -64,11 +80,31 @@ export default function DashboardPage() {
         )}
       </header>
 
-      <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatCard label="Total scans" value={stats.total} />
         <StatCard label="Allowed" value={stats.allow} accent="#34D399" />
         <StatCard label="Sanitized" value={stats.sanitize} accent="#F2B84B" />
         <StatCard label="Blocked" value={stats.block} accent="#F0576A" />
+      </div>
+
+      <div className="mb-8 rounded-lg border border-ink-700 bg-ink-900 p-4">
+        <h2 className="mb-2 text-xs font-mono uppercase tracking-wide text-text-faint">
+          Threat categories detected
+        </h2>
+        <div className="flex flex-wrap gap-2 text-xs font-mono">
+          <span className="rounded-md border border-ink-700 bg-ink-950 px-3 py-1.5 text-text-muted">
+            Prompt injection: <strong className="text-signal-block">{stats.threats.PROMPT_INJECTION}</strong>
+          </span>
+          <span className="rounded-md border border-ink-700 bg-ink-950 px-3 py-1.5 text-text-muted">
+            Jailbreak: <strong className="text-signal-block">{stats.threats.JAILBREAK}</strong>
+          </span>
+          <span className="rounded-md border border-ink-700 bg-ink-950 px-3 py-1.5 text-text-muted">
+            Sensitive data: <strong className="text-signal-sanitize">{stats.threats.SENSITIVE_DATA}</strong>
+          </span>
+          <span className="rounded-md border border-ink-700 bg-ink-950 px-3 py-1.5 text-text-muted">
+            Social engineering: <strong className="text-accent">{stats.threats.SOCIAL_ENGINEERING}</strong>
+          </span>
+        </div>
       </div>
 
       {source === "loading" ? (

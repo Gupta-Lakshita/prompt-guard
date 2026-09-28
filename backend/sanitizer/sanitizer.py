@@ -39,7 +39,7 @@ def sanitize_prompt(original_prompt: str, pii_entities: List[dict]) -> str:
     sorted_entities = sorted(pii_entities, key=lambda e: len(e["text"]), reverse=True)
 
     for entity in sorted_entities:
-        placeholder = f"[{entity['type']} REDACTED]"
+        placeholder = f"[{entity['type']}_REDACTED]"
         sanitized = sanitized.replace(entity["text"], placeholder)
 
     return sanitized

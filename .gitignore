@@ -1,3 +1,4 @@
+node_modules/
 __pycache__/
 *.pyc
 .pytest_cache/
@@ -11,6 +12,6 @@ venv/
 # 100MB push limit) — regenerate with ai_ml/training/train_classifier.py.
 ai_ml/models/
 ai_ml/training/checkpoints/
-# Built training dataset (contains raw adversarial/NSFW jailbreak text pulled
-# from public forums at build time) — regenerate with ai_ml/training/build_dataset.py.
+
+# Built training dataset
 ai_ml/training/data/

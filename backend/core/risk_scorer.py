@@ -4,19 +4,24 @@ Risk scorer.
 Owns the final risk score calculation on behalf of the backend.
 Neither the frontend nor the AI/ML modules should compute this value.
 
-Formula (from shared project contract):
-    Risk Score = 0.45 × (ml_confidence × 100)
-               + 0.30 × data_leakage_severity
-               + 0.25 × rule_score
+Formula (Micro Project MVP):
+    Base Risk = 0.50 × rule_score
+              + 0.30 × (ml_confidence × 100)
+              + 0.20 × data_leakage_severity
 
-ml_confidence  — 0.0–1.0 (from predict_ml); scaled to 0–100 inside here.
-data_leakage_severity — 0–100 (from detect_pii).
-rule_score     — 0–100 (from detect_rules).
+Safety floor:
+    If rule_score >= 70:
+        final risk score must be at least 70
+
+ml_confidence          — 0.0–1.0 (from predict_ml); scaled to 0–100.
+data_leakage_severity  — 0–100 (from detect_pii).
+rule_score             — 0–100 (from detect_rules).
 
 Result is clamped to [0, 100] and returned as an integer.
 """
 
 import math
+
 
 def compute_risk_score(
     ml_confidence: float,
@@ -24,7 +29,7 @@ def compute_risk_score(
     rule_score: int,
 ) -> int:
     """
-    Apply the weighted formula and return an integer risk score in [0, 100].
+    Apply the weighted formula with safety floor and return an integer risk score in [0, 100].
 
     Args:
         ml_confidence:          ML classifier confidence, 0.0–1.0.
@@ -34,12 +39,21 @@ def compute_risk_score(
     Returns:
         Integer risk score clamped to [0, 100].
     """
-    raw_score = (
-        0.45 * (ml_confidence * 100)   # scale confidence to 0–100 first
-        + 0.30 * data_leakage_severity
-        + 0.25 * rule_score
+    ml_confidence_percent = ml_confidence * 100.0
+
+    # Base Risk = 0.50 * rule_score + 0.30 * ML_confidence_percent + 0.20 * PII_severity
+    base_risk = (
+        0.50 * rule_score
+        + 0.30 * ml_confidence_percent
+        + 0.20 * data_leakage_severity
     )
-    # Use standard arithmetic rounding (round-half-up) instead of Python's
-    # built-in round() which uses banker's rounding (round-half-to-even).
-    # This keeps the formula predictable and easy to verify manually.
-    return int(max(0, min(100, math.floor(raw_score + 0.5))))
+
+    # Standard arithmetic rounding (round-half-up)
+    score = int(max(0, min(100, math.floor(base_risk + 0.5))))
+
+    # Safety floor: strong rule match (>= 70) ensures a final risk score of at least 70
+    if rule_score >= 70:
+        score = max(score, 70)
+
+    return score
+

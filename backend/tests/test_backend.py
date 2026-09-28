@@ -46,13 +46,20 @@ class TestRiskScorer:
 
     def test_formula_calculation(self):
         """
-        Manual check:
-            0.45 × (0.7 × 100) = 31.5
-            0.30 × 50          = 15.0
-            0.25 × 80          = 20.0
-            Total              = 66.5  → 67
+        Manual check (rule_score < 70):
+            0.50 × 60          = 30.0
+            0.30 × (0.4 × 100) = 12.0
+            0.20 × 30          =  6.0
+            Total              = 48
         """
-        assert compute_risk_score(0.7, 50, 80) == 67
+        assert compute_risk_score(0.4, 30, 60) == 48
+
+    def test_safety_floor(self):
+        """
+        If rule_score >= 70, final risk score must be at least 70
+        even when ML and PII are 0 (base = 0.50 × 80 = 40 → floor 70).
+        """
+        assert compute_risk_score(0.0, 0, 80) == 70
 
     def test_clamp_upper(self):
         """Result must never exceed 100."""
@@ -68,9 +75,9 @@ class TestRiskScorer:
     def test_ml_confidence_scaled_correctly(self):
         """
         Pure ML signal with confidence 0.5:
-            0.45 × (0.5 × 100) = 22.5  → 23 (no PII, no rules)
+            0.30 × (0.5 × 100) = 15 (no PII, no rules)
         """
-        assert compute_risk_score(0.5, 0, 0) == 23
+        assert compute_risk_score(0.5, 0, 0) == 15
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -116,7 +123,7 @@ class TestSanitizer:
             [{"type": "EMAIL", "text": "abc@gmail.com", "severity": 40}],
         )
         assert "abc@gmail.com" not in result
-        assert "[EMAIL REDACTED]" in result
+        assert "[EMAIL_REDACTED]" in result
 
     def test_credit_card_redacted(self):
         result = sanitize_prompt(
@@ -124,7 +131,7 @@ class TestSanitizer:
             [{"type": "CREDIT_CARD", "text": "4539578763621486", "severity": 90}],
         )
         assert "4539578763621486" not in result
-        assert "[CREDIT_CARD REDACTED]" in result
+        assert "[CREDIT_CARD_REDACTED]" in result
 
     def test_no_pii_unchanged(self):
         original = "Hello, how are you?"
@@ -138,8 +145,8 @@ class TestSanitizer:
                 {"type": "GOVERNMENT_ID", "text": "123-45-6789", "severity": 85},
             ],
         )
-        assert "[EMAIL REDACTED]" in result
-        assert "[GOVERNMENT_ID REDACTED]" in result
+        assert "[EMAIL_REDACTED]" in result
+        assert "[GOVERNMENT_ID_REDACTED]" in result
         assert "abc@gmail.com" not in result
         assert "123-45-6789" not in result
 
@@ -286,7 +293,7 @@ class TestScanCases:
         if data["decision"] == "SANITIZE":
             assert data["sanitized_prompt"] is not None
             assert "abc@gmail.com" not in data["sanitized_prompt"]
-            assert "[EMAIL REDACTED]" in data["sanitized_prompt"]
+            assert "[EMAIL_REDACTED]" in data["sanitized_prompt"]
         else:
             # ALLOW or BLOCK → sanitized_prompt must be null
             assert data["sanitized_prompt"] is None

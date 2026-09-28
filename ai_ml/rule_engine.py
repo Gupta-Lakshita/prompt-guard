@@ -38,7 +38,7 @@ _RULES: List[Rule] = [
     Rule(
         name="instruction_override",
         pattern=re.compile(
-            r"\b(ignore|disregard|forget)\b.{0,30}\b(your|previous|prior|above|all)\b.{0,30}\b(instructions?|rules?|prompt)\b",
+            r"\b(ignore|disregard|forget|override)\b.{0,30}(?:\b(your|previous|prior|above|all|the)\b.{0,30}\b(instructions?|rules?|prompt)\b|\b(instructions?|rules?|prompt)\b.{0,20}\b(above|prior|previously)\b|\binstructions?\b)",
             re.IGNORECASE,
         ),
         threat=THREAT_PROMPT_INJECTION,
@@ -48,12 +48,42 @@ _RULES: List[Rule] = [
     Rule(
         name="system_prompt_exfiltration",
         pattern=re.compile(
-            r"\b(reveal|show|print|leak|output|repeat)\b.{0,30}\b(system prompt|hidden prompt|instructions?)\b",
+            r"\b(reveal|show|print|leak|output|repeat)\b.{0,30}\b(system prompt|hidden (prompt|instructions?|information)|instructions?)\b",
             re.IGNORECASE,
         ),
         threat=THREAT_PROMPT_INJECTION,
         severity=75,
         message="Attempt to exfiltrate system prompt detected",
+    ),
+    Rule(
+        name="safety_rule_override",
+        pattern=re.compile(
+            r"\b(ignore|disregard|override)\b.{0,30}\b(the|all|any)?\b.{0,20}\b(safety\s+(rules?|policies|policy)|content\s+policies)\b",
+            re.IGNORECASE,
+        ),
+        threat=THREAT_PROMPT_INJECTION,
+        severity=75,
+        message="Safety rule/policy override attempt detected",
+    ),
+    Rule(
+        name="developer_mode",
+        pattern=re.compile(
+            r"\b(enable|activate|enter|switch to|you are (now )?in)?\s*\bdeveloper mode\b",
+            re.IGNORECASE,
+        ),
+        threat=THREAT_JAILBREAK,
+        severity=80,
+        message="Developer mode jailbreak attempt detected",
+    ),
+    Rule(
+        name="safety_restriction_bypass",
+        pattern=re.compile(
+            r"\b(disable|bypass|remove|turn off|ignore)\b.{0,30}\b(all|the|any)?\b.{0,20}\b(safety|security|content)\b.{0,20}\b(restrictions?|filters?|guidelines?|limitations?|policies|policy)\b",
+            re.IGNORECASE,
+        ),
+        threat=THREAT_JAILBREAK,
+        severity=75,
+        message="Safety restriction bypass attempt detected",
     ),
     Rule(
         name="role_override",
@@ -62,13 +92,13 @@ _RULES: List[Rule] = [
             re.IGNORECASE,
         ),
         threat=THREAT_JAILBREAK,
-        severity=60,
+        severity=65,
         message="Role/persona override attempt detected",
     ),
     Rule(
         name="dan_style_jailbreak",
         pattern=re.compile(
-            r"\b(dan mode|do anything now|jailbroken?|no (safety|content) (restrictions?|filters?|guidelines?))\b",
+            r"\b(dan mode|do anything now|jailbroken?|no (safety|content) (restrictions?|filters?|guidelines?|limitations?))\b",
             re.IGNORECASE,
         ),
         threat=THREAT_JAILBREAK,
@@ -129,7 +159,7 @@ _RULES: List[Rule] = [
 
 
 def _normalize(prompt: str) -> str:
-    return " ".join(prompt.strip().split())
+    return " ".join(prompt.strip().lower().split())
 
 
 def detect_rules(prompt: Optional[str]) -> dict:

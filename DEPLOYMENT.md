@@ -22,9 +22,15 @@ What it does:
 - Installs `backend/requirements.txt` + `ai_ml/requirements.txt` and downloads the
   spaCy model.
 - Runs `uvicorn backend.main:app` on Render's assigned `$PORT`.
-- Mounts a 1GB persistent disk at `/var/data` and points `DB_PATH` at it, so the SQLite
-  event log survives redeploys (the default `promptguard.db` in the repo root would
-  otherwise reset on every deploy).
+- Uses the **free plan** — no persistent disk (Render's free tier doesn't support them;
+  attaching one forces the whole Blueprint onto a paid plan, which is why an earlier
+  version of this file didn't offer a free option). SQLite therefore writes to the
+  default ephemeral filesystem: the event log **resets on every redeploy or restart**.
+  Fine for a demo/submission; not durable. If you later upgrade to a paid plan, add a
+  `disk:` block and set `DB_PATH` to a path under its mount to make logging persistent.
+- Free-plan instances also **spin down after ~15 minutes of inactivity** and take
+  10-30s to wake back up on the next request — the first `/scan` after a quiet period
+  will be slow, not broken.
 - Leaves a placeholder `CORS_EXTRA_ORIGINS` — after your Vercel deploy has a URL,
   update this env var in the Render dashboard to that URL (comma-separate if you add
   more origins later). Without it, the deployed frontend can't call the deployed
@@ -34,11 +40,12 @@ What it does:
 is gitignored (checkpoints are ~260MB, over GitHub's 100MB push limit — see
 `ai_ml/README.md`). On a fresh Render deploy, `predict_ml()` automatically falls back
 to the keyword-heuristic implementation — the backend still works, just with weaker ML
-signal. To deploy with the real trained model, uncomment the two training lines in
-`render.yaml`'s `buildCommand` (adds ~15-20 min to every build on the current
-1,793-example dataset) — or train once locally and find another way to ship the
-checkpoint (e.g. push it to the Hugging Face Hub and have `classifier.py` download it
-at startup; that's not wired up yet).
+signal, and (deliberately) **without ever importing torch/transformers at runtime**,
+which keeps memory well under the free plan's 512MB limit. The training lines in
+`render.yaml`'s `buildCommand` are commented out for this reason — uncommenting them
+would load the real DistilBERT model into memory on every request and likely exceed
+512MB on the free plan. Only uncomment them (or otherwise ship the trained checkpoint)
+if you upgrade off the free plan.
 
 ## 2. Frontend → Vercel
 

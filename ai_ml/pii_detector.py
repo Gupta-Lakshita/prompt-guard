@@ -24,6 +24,7 @@ and the backend integration keeps working either way.
 
 import logging
 import re
+import threading
 from typing import List, Optional
 
 logger = logging.getLogger(__name__)
@@ -69,6 +70,12 @@ _PRESIDIO_TO_CONTRACT_TYPE = {
 
 _analyzer_engine = None
 _presidio_init_failed = False
+# Guards engine construction. Without this, concurrent requests (FastAPI runs
+# sync route handlers in a thread pool) can each race past the "is it built
+# yet" check and independently build their own ~130MB Presidio+spaCy engine
+# at once — this is what caused repeated Render free-tier (512MB) OOMs
+# shortly after a cold start, when several requests arrived close together.
+_load_lock = threading.Lock()
 
 
 def _build_analyzer_engine():
@@ -110,18 +117,40 @@ def _get_analyzer_engine():
     if _analyzer_engine is not None:
         return _analyzer_engine
 
-    try:
-        _analyzer_engine = _build_analyzer_engine()
-        return _analyzer_engine
-    except Exception:
-        logger.warning(
-            "Presidio/spaCy PII engine unavailable; falling back to regex-only PII "
-            "detection. Install presidio-analyzer, spacy and the en_core_web_sm "
-            "model to enable NER-based detection.",
-            exc_info=True,
-        )
-        _presidio_init_failed = True
-        return None
+    with _load_lock:
+        # Re-check inside the lock: another thread may have just finished
+        # building it while we were waiting.
+        if _presidio_init_failed:
+            return None
+        if _analyzer_engine is not None:
+            return _analyzer_engine
+
+        try:
+            _analyzer_engine = _build_analyzer_engine()
+            return _analyzer_engine
+        except Exception:
+            logger.warning(
+                "Presidio/spaCy PII engine unavailable; falling back to regex-only PII "
+                "detection. Install presidio-analyzer, spacy and the en_core_web_sm "
+                "model to enable NER-based detection.",
+                exc_info=True,
+            )
+            _presidio_init_failed = True
+            return None
+
+
+def warm_up() -> None:
+    """Eagerly build the Presidio/spaCy engine once, synchronously, at app
+    startup — instead of lazily on the first /scan request. This matters on
+    memory-constrained hosts: without it, several requests arriving close
+    together right after a cold start can each race past the lazy-init check
+    and build their own ~130MB copy of the engine concurrently (see the lock
+    above), which is what caused repeated Render free-tier (512MB) OOMs.
+    Building it once here, before the app starts accepting traffic, makes
+    that race impossible and makes the one-time memory cost predictable.
+    Safe to call even if Presidio/spaCy aren't installed (just a no-op).
+    """
+    _get_analyzer_engine()
 
 
 def _detect_pii_presidio(prompt: str) -> dict:

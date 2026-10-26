@@ -16,13 +16,26 @@ from fastapi.middleware.cors import CORSMiddleware
 from backend.core.config import CORS_ORIGINS
 from backend.db.database import init_db
 from backend.api.routes import scan, health, events
+from ai_ml import classifier, pii_detector
 
 
-# ── Lifespan: initialise the database once on startup ───────────────────────
+# ── Lifespan: one-time startup work ──────────────────────────────────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Initialise SQLite on startup; nothing to clean up on shutdown."""
+    """Initialise SQLite and warm up the ML/PII engines once on startup.
+
+    Warming up here (rather than lazily on the first /scan request) matters
+    on memory-constrained hosts: several requests arriving close together
+    right after a cold start could otherwise each race past the lazy-init
+    check and build their own ~130MB copy of the Presidio+spaCy engine
+    concurrently, which is what caused repeated Render free-tier (512MB)
+    OOMs. Building everything once here, single-threaded, before the app
+    accepts traffic, makes that race impossible — at the cost of adding a
+    few seconds to cold-start time, which is the right tradeoff here.
+    """
     init_db()
+    pii_detector.warm_up()
+    classifier.warm_up()
     yield
 
 

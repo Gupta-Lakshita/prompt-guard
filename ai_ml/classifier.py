@@ -28,6 +28,7 @@ not be reported as evaluation results.
 
 import logging
 import os
+import threading
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -45,6 +46,10 @@ _MAX_LENGTH = 256
 _model = None
 _tokenizer = None
 _model_unavailable = False
+# Guards model construction so concurrent requests (FastAPI runs sync route
+# handlers in a thread pool) can't each build their own copy at once — see
+# the matching lock in pii_detector.py for the incident this pattern fixed.
+_load_lock = threading.Lock()
 
 
 def _try_load_model() -> None:
@@ -54,31 +59,46 @@ def _try_load_model() -> None:
     if _model_unavailable or _model is not None:
         return
 
-    if not os.path.isdir(MODEL_DIR):
-        _model_unavailable = True
-        logger.warning(
-            "predict_ml(): no trained model found at %s. Using the temporary "
-            "keyword-heuristic fallback instead. Run "
-            "`python ai_ml/training/train_classifier.py` to produce a trained model.",
-            MODEL_DIR,
-        )
-        return
+    with _load_lock:
+        # Re-check inside the lock: another thread may have just finished.
+        if _model_unavailable or _model is not None:
+            return
 
-    try:
-        import torch  # noqa: F401
-        from transformers import AutoModelForSequenceClassification, AutoTokenizer
+        if not os.path.isdir(MODEL_DIR):
+            _model_unavailable = True
+            logger.warning(
+                "predict_ml(): no trained model found at %s. Using the temporary "
+                "keyword-heuristic fallback instead. Run "
+                "`python ai_ml/training/train_classifier.py` to produce a trained model.",
+                MODEL_DIR,
+            )
+            return
 
-        _tokenizer = AutoTokenizer.from_pretrained(MODEL_DIR)
-        _model = AutoModelForSequenceClassification.from_pretrained(MODEL_DIR)
-        _model.eval()
-    except Exception:
-        logger.warning(
-            "predict_ml(): failed to load trained model from %s; using the "
-            "temporary keyword-heuristic fallback instead.",
-            MODEL_DIR,
-            exc_info=True,
-        )
-        _model_unavailable = True
+        try:
+            import torch  # noqa: F401
+            from transformers import AutoModelForSequenceClassification, AutoTokenizer
+
+            _tokenizer = AutoTokenizer.from_pretrained(MODEL_DIR)
+            _model = AutoModelForSequenceClassification.from_pretrained(MODEL_DIR)
+            _model.eval()
+        except Exception:
+            logger.warning(
+                "predict_ml(): failed to load trained model from %s; using the "
+                "temporary keyword-heuristic fallback instead.",
+                MODEL_DIR,
+                exc_info=True,
+            )
+            _model_unavailable = True
+
+
+def warm_up() -> None:
+    """Eagerly resolve model availability once, synchronously, at app startup
+    instead of on the first predict_ml() call — see pii_detector.warm_up()
+    for why this matters on memory-constrained hosts (avoids a concurrent-
+    request race during cold start). Safe to call whether or not a trained
+    model is actually present; it just resolves the fallback decision once.
+    """
+    _try_load_model()
 
 
 def _id2label(pred_id: int) -> str:

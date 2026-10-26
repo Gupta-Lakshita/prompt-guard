@@ -47,6 +47,35 @@ would load the real DistilBERT model into memory on every request and likely exc
 512MB on the free plan. Only uncomment them (or otherwise ship the trained checkpoint)
 if you upgrade off the free plan.
 
+### Diagnosed: free-plan 502s caused by a concurrent-build race, not the ML model
+
+Early deploys hit repeated `502 Bad Gateway` errors with Render logs reporting
+`Ran out of memory (used over 512MB)`. The ML model was the obvious suspect, but
+measuring it directly ruled that out: `predict_ml()` never imports torch/transformers
+when no trained checkpoint is present (confirmed by Render's own logs — "no trained
+model found... using the keyword-heuristic fallback"), so it was never the cause.
+
+The real cause, found by instrumenting the actual code: `detect_pii()` lazily builds a
+Presidio + spaCy engine on first use, adding ~130MB to the process (measured: 43MB →
+175MB on a single build). That alone fits comfortably in 512MB. But the lazy-build
+check (`if _analyzer_engine is not None: return it, else build it`) had no lock —
+and FastAPI runs sync route handlers in a thread pool, so if several requests arrived
+close together right after a cold start (very plausible: Render's free plan spins
+down after idle, and a frontend retrying a failed request compounds this), each one
+could race past the check and build its **own separate ~130MB copy concurrently**.
+3-4 concurrent builds comfortably exceeds 512MB — which matches the repeated,
+intermittent (not perfectly reproducible) nature of the crashes.
+
+Fixed in `ai_ml/pii_detector.py` and `ai_ml/classifier.py`: both lazy-builders are now
+guarded by a lock, and both expose a `warm_up()` function that `backend/main.py`'s
+startup `lifespan` now calls once, synchronously, before the app starts accepting
+traffic — so the engine is built exactly once, in a controlled single-threaded way,
+instead of racing on the first burst of real requests. Verified directly: 5 concurrent
+requests against the old code would have built the engine up to 5 times; against the
+fixed code, it builds exactly once (confirmed via instrumented test). The tradeoff is
+~1.4s added to cold-start time, which is negligible next to the free plan's existing
+10-30s spin-up-from-sleep delay.
+
 ## 2. Frontend → Vercel
 
 `frontend/vercel.json` configures the build. In the Vercel dashboard:

@@ -6,17 +6,30 @@ services:
     plan: free
     # Root stays the repo root (not backend/) — backend/main.py imports the
     # ai_ml package as a sibling, so both must be on the same PYTHONPATH.
-    # NOTE: the trained DistilBERT checkpoint is gitignored (not in the repo —
-    # see ai_ml/README.md), so predict_ml() will use the keyword-heuristic
-    # fallback on a fresh deploy unless you also train it during the build.
-    # Uncommenting the training lines below adds ~15-20 min per build AND
-    # loads torch/transformers into memory at runtime — likely too much for
-    # the free plan's 512MB RAM limit. Leave them commented out on free.
+    #
+    # IMPORTANT: installs ai_ml/requirements-runtime.txt, NOT the full
+    # ai_ml/requirements.txt. The full file includes transformers (and
+    # therefore torch) for local training — measured impact of having torch
+    # merely INSTALLED in this same environment: spaCy's ML backend (thinc)
+    # auto-imports it the moment presidio_analyzer/spacy are imported, even
+    # though predict_ml() never touches it at runtime. That alone pushed
+    # real memory usage to ~958MB on startup (measured via `ps`), instantly
+    # exceeding the free plan's 512MB limit before serving a single request
+    # — this was the actual cause of the repeated OOM/502s, not the earlier
+    # concurrent-build race (that fix was real too, but insufficient alone).
+    # With the runtime-only file, real startup memory measures ~172MB.
+    # See DEPLOYMENT.md for the full incident writeup.
+    #
+    # NOTE: the trained DistilBERT checkpoint is gitignored (not in the repo
+    # — see ai_ml/README.md), so predict_ml() uses the keyword-heuristic
+    # fallback on a fresh deploy. Do NOT try to enable the real model on
+    # this plan by installing the full requirements file or adding torch
+    # back — there isn't enough free-tier memory headroom for an actual
+    # loaded DistilBERT model on top of Presidio+spaCy. That requires
+    # upgrading off the free plan.
     buildCommand: >
-      pip install -r backend/requirements.txt -r ai_ml/requirements.txt &&
+      pip install -r backend/requirements.txt -r ai_ml/requirements-runtime.txt &&
       python -m spacy download en_core_web_sm
-      # && python ai_ml/training/build_dataset.py
-      # && python ai_ml/training/train_classifier.py
     startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: CORS_EXTRA_ORIGINS

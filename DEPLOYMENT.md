@@ -76,6 +76,46 @@ fixed code, it builds exactly once (confirmed via instrumented test). The tradeo
 ~1.4s added to cold-start time, which is negligible next to the free plan's existing
 10-30s spin-up-from-sleep delay.
 
+### Follow-up: that fix was real but insufficient — the actual bulk of the memory was something else entirely
+
+After deploying the concurrency fix, the service kept restarting. Reproducing the
+*exact* deployed code locally (not an isolated script — the real `uvicorn
+backend.main:app` process via `ps`, matching how Render measures memory) showed
+**958MB** of real RSS on startup alone, before serving a single request — nowhere
+near the ~175MB estimated earlier. That earlier estimate had used a lighter-weight
+Python script to call the detector functions directly, which (as it turned out) wasn't
+exercising the same import environment Render's build actually produces.
+
+Root cause, confirmed by directly testing `import presidio_analyzer` alone in two
+otherwise-identical virtualenvs: **with `torch` installed anywhere in the same
+environment — even if nothing in this codebase ever imports it — spaCy's ML backend
+(`thinc`) auto-detects and imports torch itself**, purely because it's present, as
+part of registering optional PyTorch interop. Measured: `import presidio_analyzer`
+alone used 888MB in a venv that also had `torch` installed, vs. 105MB in an
+otherwise-identical venv without it — a ~780MB difference from a single import
+statement, with zero torch modules loaded in the clean case (confirmed via
+`sys.modules`).
+
+`render.yaml`'s build command was installing the *full* `ai_ml/requirements.txt` —
+written for local training, so it includes `transformers` (which depends on `torch`)
+— into the exact same environment that runs the deployed app. `predict_ml()` itself
+never imports torch at runtime (true, and still correctly verified earlier), but that
+doesn't matter when something else in the same environment drags it in just because
+it's installed.
+
+**Fix:** added `ai_ml/requirements-runtime.txt` — presidio-analyzer, presidio-anonymizer,
+and spacy only, no transformers/torch/datasets/accelerate/scikit-learn/pandas/matplotlib
+(none of those are ever imported by the deployed app — confirmed by grep, not just
+assumed). `render.yaml` now installs this file instead of the full one. Re-measured the
+real deployed command end-to-end with only the runtime file installed: **~172MB** RSS
+after startup (including the concurrency-fix warm-up), comfortably under the 512MB
+limit with over 300MB of headroom — and `/scan` verified working correctly for both
+an injection prompt (correctly BLOCKed) and a PII prompt (correctly detected) in that
+same lean environment.
+
+`ai_ml/requirements.txt` (the full file) is still used for local development and
+training — it's just no longer what gets installed for the deployed backend.
+
 ## 2. Frontend → Vercel
 
 `frontend/vercel.json` configures the build. In the Vercel dashboard:

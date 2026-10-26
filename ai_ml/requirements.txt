@@ -1,4 +1,10 @@
-# AI/ML detection layer dependencies.
+# AI/ML LOCAL DEVELOPMENT + TRAINING dependencies (dataset build, DistilBERT
+# fine-tuning, evaluation). This is NOT what gets deployed — the deployed
+# backend uses the much smaller ai_ml/requirements-runtime.txt instead. See
+# that file's comment for why: installing transformers (and therefore
+# torch) into the same environment the deployed app runs in adds ~780MB of
+# memory that the running app never needs, which is what caused repeated
+# Render free-tier OOMs. Use this file for local work only.
 #
 # torch is CPU-only here; install from https://download.pytorch.org/whl/cpu
 # for the same build, or let pip resolve a default build on a GPU machine.

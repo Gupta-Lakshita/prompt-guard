@@ -4,11 +4,11 @@ Synopsis Section 7 target: <300ms (end-to-end, prompt submission to decision).
 
 - Mode: in-process (TestClient)
 - Requests measured: 100 (after 5 warmup requests, excluded)
-- Mean: 27.6ms
-- p50: 30.5ms
-- p95: 37.7ms
-- p99: 41.0ms
-- Max: 41.7ms
+- Mean: 33.7ms
+- p50: 31.6ms
+- p95: 43.9ms
+- p99: 74.6ms
+- Max: 86.7ms
 
 **p95 meets the <300ms target.**
 

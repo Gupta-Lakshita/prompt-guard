@@ -17,7 +17,7 @@ Expectation: no threats, no PII, ML label None
   },
   "ml": {
     "label": null,
-    "confidence": 0.02
+    "confidence": 0.01
   },
   "pii": {
     "data_leakage_severity": 0,
@@ -39,7 +39,7 @@ Expectation: no threats, no PII, ML label None
   },
   "ml": {
     "label": null,
-    "confidence": 0.34
+    "confidence": 0.03
   },
   "pii": {
     "data_leakage_severity": 0,
@@ -61,7 +61,7 @@ Expectation: no threats, no PII, ML label None
   },
   "ml": {
     "label": null,
-    "confidence": 0.01
+    "confidence": 0.0
   },
   "pii": {
     "data_leakage_severity": 0,
@@ -83,7 +83,7 @@ Expectation: no threats (benign despite mentioning 'system')
   },
   "ml": {
     "label": null,
-    "confidence": 0.01
+    "confidence": 0.0
   },
   "pii": {
     "data_leakage_severity": 0,
@@ -120,7 +120,7 @@ Expectation: PROMPT_INJECTION from rules + ML
   },
   "ml": {
     "label": "PROMPT_INJECTION",
-    "confidence": 0.9
+    "confidence": 0.94
   },
   "pii": {
     "data_leakage_severity": 0,
@@ -151,7 +151,7 @@ Expectation: PROMPT_INJECTION from rules + ML
   },
   "ml": {
     "label": "PROMPT_INJECTION",
-    "confidence": 0.92
+    "confidence": 0.96
   },
   "pii": {
     "data_leakage_severity": 0,
@@ -182,7 +182,7 @@ Expectation: PROMPT_INJECTION from rules + ML
   },
   "ml": {
     "label": "PROMPT_INJECTION",
-    "confidence": 0.93
+    "confidence": 0.96
   },
   "pii": {
     "data_leakage_severity": 0,
@@ -219,7 +219,7 @@ Expectation: JAILBREAK from rules + ML
   },
   "ml": {
     "label": "PROMPT_INJECTION",
-    "confidence": 0.93
+    "confidence": 0.96
   },
   "pii": {
     "data_leakage_severity": 0,
@@ -250,7 +250,7 @@ Expectation: JAILBREAK from rules + ML
   },
   "ml": {
     "label": "PROMPT_INJECTION",
-    "confidence": 0.71
+    "confidence": 0.53
   },
   "pii": {
     "data_leakage_severity": 0,
@@ -274,7 +274,7 @@ Expectation: JAILBREAK from rules + ML
       {
         "type": "RULE",
         "message": "Role/persona override attempt detected",
-        "severity": 60,
+        "severity": 65,
         "confidence": null
       },
       {
@@ -287,7 +287,7 @@ Expectation: JAILBREAK from rules + ML
   },
   "ml": {
     "label": "PROMPT_INJECTION",
-    "confidence": 0.85
+    "confidence": 0.89
   },
   "pii": {
     "data_leakage_severity": 0,
@@ -309,7 +309,7 @@ Expectation: EMAIL entity, no threats
   },
   "ml": {
     "label": null,
-    "confidence": 0.14
+    "confidence": 0.0
   },
   "pii": {
     "data_leakage_severity": 40,
@@ -337,7 +337,7 @@ Expectation: PHONE entity, no threats
   },
   "ml": {
     "label": null,
-    "confidence": 0.17
+    "confidence": 0.0
   },
   "pii": {
     "data_leakage_severity": 40,
@@ -365,7 +365,7 @@ Expectation: CREDIT_CARD entity (Luhn-valid), no threats
   },
   "ml": {
     "label": null,
-    "confidence": 0.1
+    "confidence": 0.01
   },
   "pii": {
     "data_leakage_severity": 90,
@@ -393,7 +393,7 @@ Expectation: API_KEY entity, no threats
   },
   "ml": {
     "label": null,
-    "confidence": 0.42
+    "confidence": 0.01
   },
   "pii": {
     "data_leakage_severity": 90,
@@ -421,7 +421,7 @@ Expectation: GOVERNMENT_ID entity, no threats
   },
   "ml": {
     "label": null,
-    "confidence": 0.22
+    "confidence": 0.0
   },
   "pii": {
     "data_leakage_severity": 85,
@@ -458,7 +458,7 @@ Expectation: PROMPT_INJECTION threat + EMAIL entity
   },
   "ml": {
     "label": null,
-    "confidence": 0.16
+    "confidence": 0.0
   },
   "pii": {
     "data_leakage_severity": 40,
@@ -494,8 +494,8 @@ Expectation: PROMPT_INJECTION threat + CREDIT_CARD entity
     ]
   },
   "ml": {
-    "label": "PROMPT_INJECTION",
-    "confidence": 0.82
+    "label": null,
+    "confidence": 0.07
   },
   "pii": {
     "data_leakage_severity": 90,
@@ -523,7 +523,7 @@ Expectation: should NOT trigger rules (benign 'instructions')
   },
   "ml": {
     "label": null,
-    "confidence": 0.04
+    "confidence": 0.0
   },
   "pii": {
     "data_leakage_severity": 0,
@@ -544,8 +544,8 @@ Expectation: should NOT trigger rules (benign 'ignore')
     "signals": []
   },
   "ml": {
-    "label": "PROMPT_INJECTION",
-    "confidence": 0.7
+    "label": null,
+    "confidence": 0.16
   },
   "pii": {
     "data_leakage_severity": 0,
@@ -567,7 +567,7 @@ Expectation: PII should fire; ML/rules should NOT flag injection — KNOWN limit
   },
   "ml": {
     "label": null,
-    "confidence": 0.11
+    "confidence": 0.0
   },
   "pii": {
     "data_leakage_severity": 40,
@@ -595,7 +595,7 @@ Expectation: paraphrased injection with no literal trigger phrase — rule engin
   },
   "ml": {
     "label": "PROMPT_INJECTION",
-    "confidence": 0.92
+    "confidence": 0.95
   },
   "pii": {
     "data_leakage_severity": 0,
@@ -616,8 +616,8 @@ Expectation: paraphrased jailbreak — rule engine may miss this; ML is the inte
     "signals": []
   },
   "ml": {
-    "label": "PROMPT_INJECTION",
-    "confidence": 0.74
+    "label": null,
+    "confidence": 0.49
   },
   "pii": {
     "data_leakage_severity": 15,

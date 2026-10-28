@@ -1,21 +1,21 @@
 # Prompt Guard — DistilBERT Classifier Evaluation Report
 
-Test set size: 269 examples
+Test set size: 389 examples
 
 ## Overall metrics
 
-- Accuracy: 0.8736
-- Precision (macro): 0.8765
-- Recall (macro): 0.8598
-- F1-score (macro): 0.8643
+- Accuracy: 0.9434
+- Precision (macro): 0.9203
+- Recall (macro): 0.9173
+- F1-score (macro): 0.9186
 
 ## Per-class metrics
 
 | Class | Precision | Recall | F1-score | Support |
 | --- | --- | --- | --- | --- |
-| NORMAL | 0.8889 | 0.9412 | 0.9143 | 119 |
-| PROMPT_INJECTION | 0.8072 | 0.8816 | 0.8428 | 76 |
-| JAILBREAK | 0.9333 | 0.7568 | 0.8358 | 74 |
+| NORMAL | 0.9750 | 0.9791 | 0.9770 | 239 |
+| PROMPT_INJECTION | 0.8846 | 0.9079 | 0.8961 | 76 |
+| JAILBREAK | 0.9014 | 0.8649 | 0.8828 | 74 |
 
 ## Confusion matrix
 
@@ -23,9 +23,9 @@ Rows = true label, columns = predicted label.
 
 | | NORMAL | PROMPT_INJECTION | JAILBREAK |
 | --- | --- | --- | --- |
-| NORMAL | 112 | 6 | 1 |
-| PROMPT_INJECTION | 6 | 67 | 3 |
-| JAILBREAK | 8 | 10 | 56 |
+| NORMAL | 234 | 3 | 2 |
+| PROMPT_INJECTION | 2 | 69 | 5 |
+| JAILBREAK | 4 | 6 | 64 |
 
 See `confusion_matrix.png` for a plotted version of this table.
 
@@ -34,12 +34,12 @@ See `confusion_matrix.png` for a plotted version of this table.
 ```
                   precision    recall  f1-score   support
 
-          NORMAL       0.89      0.94      0.91       119
-PROMPT_INJECTION       0.81      0.88      0.84        76
-       JAILBREAK       0.93      0.76      0.84        74
+          NORMAL       0.97      0.98      0.98       239
+PROMPT_INJECTION       0.88      0.91      0.90        76
+       JAILBREAK       0.90      0.86      0.88        74
 
-        accuracy                           0.87       269
-       macro avg       0.88      0.86      0.86       269
-    weighted avg       0.88      0.87      0.87       269
+        accuracy                           0.94       389
+       macro avg       0.92      0.92      0.92       389
+    weighted avg       0.94      0.94      0.94       389
 
 ```

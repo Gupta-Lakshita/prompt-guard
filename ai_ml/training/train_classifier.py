@@ -104,7 +104,11 @@ def main():
         compute_metrics=_compute_metrics,
     )
 
-    trainer.train()
+    checkpoints_dir = os.path.join(TRAINING_DIR, "checkpoints")
+    has_checkpoint = os.path.isdir(checkpoints_dir) and any(
+        name.startswith("checkpoint-") for name in os.listdir(checkpoints_dir)
+    )
+    trainer.train(resume_from_checkpoint=has_checkpoint)
 
     val_metrics = trainer.evaluate()
     print("Validation metrics:", val_metrics)

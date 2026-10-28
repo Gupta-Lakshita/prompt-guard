@@ -1,0 +1,13 @@
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.db
+node_modules/
+dist/
+frontend/
+ai_ml/models/
+ai_ml/training/data/
+ai_ml/training/checkpoints/
+.git/

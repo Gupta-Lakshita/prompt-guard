@@ -1,0 +1,28 @@
+# Local Docker Compose setup — mirrors the Render (backend) + Vercel
+# (frontend) split used in actual deployment (see DEPLOYMENT.md), but runs
+# both as containers on one machine for local testing of the containerized
+# build itself.
+#
+#   docker compose up --build
+#   open http://localhost:8080
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - CORS_EXTRA_ORIGINS=http://localhost:8080
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: http://localhost:8000
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend

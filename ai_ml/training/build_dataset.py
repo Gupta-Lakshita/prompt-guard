@@ -25,6 +25,14 @@ dataset table (Section 5.3):
   - A small hand-written set of everyday benign task prompts (including some
     that mention PII in an ordinary context), added to NORMAL so the model
     also sees short, simple, non-forum-style text.
+  - ~500 synthetic PII-bearing benign prompts (Faker-generated identities in
+    everyday task templates) -> NORMAL, matching the synopsis's own dataset
+    plan ("Synthetic PII prompts (Presidio synthetic-data generator + Faker
+    templates)"). Reinforces that mentioning an email/phone/name is not
+    itself an attack signal.
+  - ~300 additional hand-curated-style benign prompts (template x topic
+    expansion across ~40 everyday domains) -> NORMAL, for lexical diversity
+    beyond what the public source corpora provide on their own.
   - HarmBench is intentionally NOT included — the synopsis itself reserves
     it for adversarial/red-team evaluation from the Minor Project stage
     onward (Section 5.3), not Micro-stage classifier training.
@@ -40,6 +48,7 @@ the exact same split by re-running this script (a fixed random seed is used
 throughout).
 """
 
+import itertools
 import os
 import random
 import re
@@ -47,6 +56,7 @@ import re
 import pandas as pd
 import requests
 from datasets import load_dataset
+from faker import Faker
 from sklearn.model_selection import train_test_split
 
 SEED = 42
@@ -64,6 +74,12 @@ ADVBENCH_URL = (
     "https://raw.githubusercontent.com/llm-attacks/llm-attacks/main/"
     "data/advbench/harmful_behaviors.csv"
 )
+# Target sizes for the dataset-scale gap called out in README.md: the
+# synopsis's own dataset table (Section 5.3) includes ~500 synthetic PII
+# prompts (Presidio synthetic-data generator + Faker templates) and ~300
+# more hand-curated benign prompts beyond the original ~40.
+SYNTHETIC_PII_TARGET_SIZE = 500
+EXTRA_BENIGN_TARGET_SIZE = 300
 
 _EXTRA_BENIGN_PROMPTS = [
     "Explain what photosynthesis is.",
@@ -189,6 +205,118 @@ def _load_extra_benign():
     return [{"text": _clean_text(p), "label": LABEL_NORMAL} for p in _EXTRA_BENIGN_PROMPTS]
 
 
+# ---------------------------------------------------------------------------
+# Synthetic PII-bearing benign prompts — per the synopsis's own dataset plan
+# (Section 5.3: "Synthetic PII prompts (Presidio synthetic-data generator +
+# Faker templates)"). The dedicated `presidio-evaluator` package that ships
+# Presidio's own generator pulls in a heavy, separate dependency tree for a
+# single data-prep step, so this uses Faker directly against a template bank
+# in the same spirit — synthetic identities embedded in everyday task
+# phrasing, labelled NORMAL. These exist to teach the classifier that
+# mentioning an email/phone/name is not itself an attack signal, which is
+# exactly the false-positive pattern documented in README.md.
+# ---------------------------------------------------------------------------
+
+_PII_BENIGN_TEMPLATES = [
+    "My email is {email}, please send the invoice there.",
+    "You can reach me at {email} if you have questions.",
+    "Please CC {email} on the next update.",
+    "Send the confirmation to {email} once it's ready.",
+    "My name is {name}. Please add me to the guest list.",
+    "This order is for {name} — please process it today.",
+    "Can you update my profile? My name is {name}.",
+    "Please address the letter to {name}.",
+    "Call me at {phone} tomorrow morning.",
+    "My phone number is {phone}, feel free to text me the update.",
+    "You can reach the office at {phone} during business hours.",
+    "Please text the delivery confirmation to {phone}.",
+    "Here's my information for the form: name {name}, email {email}.",
+    "Please save my details: email {email}, phone {phone}.",
+    "Add this contact to my address book: {name}, {email}.",
+    "Update the record: {name}, phone {phone}, email {email}.",
+    "I work at {company} — please list that as my employer on the form.",
+    "My company is {company}; send the quote to {email}.",
+    "I live at {address}, in case that's needed for delivery.",
+    "Please ship the package to {address}.",
+    "My billing address is {address}, {city}.",
+    "I'm based in {city} — is the event happening there too?",
+    "Register me for the newsletter with {email}.",
+    "Please book the appointment under the name {name}.",
+    "The customer's name is {name} and their callback number is {phone}.",
+    "Here is the attendee list entry: {name}, {email}, {phone}.",
+    "Could you forward this report to {email} by end of day?",
+    "My job title is {job} at {company}, for the reference letter.",
+    "Please set the reminder for {name} to pick up their order.",
+    "I'd like to update my emergency contact to {name}, {phone}.",
+]
+
+
+def _load_synthetic_pii_benign():
+    fake = Faker()
+    Faker.seed(SEED)
+    rng = random.Random(SEED)
+
+    rows = []
+    while len(rows) < SYNTHETIC_PII_TARGET_SIZE:
+        template = rng.choice(_PII_BENIGN_TEMPLATES)
+        text = template.format(
+            email=fake.email(),
+            name=fake.name(),
+            phone=fake.phone_number(),
+            company=fake.company(),
+            address=fake.street_address(),
+            city=fake.city(),
+            job=fake.job(),
+        )
+        rows.append({"text": _clean_text(text), "label": LABEL_NORMAL})
+    return rows
+
+
+# ---------------------------------------------------------------------------
+# Additional hand-curated benign prompts, beyond the original ~40 in
+# _EXTRA_BENIGN_PROMPTS. Built from topic/action template combinations
+# across varied everyday domains (not another attack-adjacent set) so the
+# NORMAL class sees more lexical diversity than the public source corpora
+# provide on their own — generated via template expansion rather than typed
+# one-by-one, documented here rather than left looking hand-authored.
+# ---------------------------------------------------------------------------
+
+_BENIGN_TOPIC_BANK = [
+    "gardening", "home brewing", "budget travel", "chess openings",
+    "watercolor painting", "urban cycling", "home automation", "sourdough baking",
+    "personal finance", "bird watching", "indoor plants", "meal prepping",
+    "running a 5K", "learning guitar", "car maintenance", "resume writing",
+    "public speaking", "freelance taxes", "dog training", "yoga for beginners",
+    "night photography", "woodworking", "board games", "podcasting",
+    "data visualization", "SQL queries", "Docker containers", "REST APIs",
+    "regular expressions", "unit testing", "Git branching", "CSS flexbox",
+    "the French Revolution", "the water cycle", "black holes", "DNA replication",
+    "the stock market", "supply chains", "renewable energy", "volcanoes",
+]
+
+_BENIGN_ACTION_TEMPLATES = [
+    "Explain the basics of {topic} for a complete beginner.",
+    "What are three common mistakes people make with {topic}?",
+    "Give me a quick-start guide to {topic}.",
+    "What's a good first step for someone interested in {topic}?",
+    "Summarize the key ideas behind {topic} in a few sentences.",
+    "What equipment or tools do I need to get started with {topic}?",
+    "Compare two different approaches to {topic}.",
+    "What's a common misconception about {topic}?",
+]
+
+
+def _generate_extra_benign():
+    rng = random.Random(SEED + 1)
+    combos = list(itertools.product(_BENIGN_ACTION_TEMPLATES, _BENIGN_TOPIC_BANK))
+    rng.shuffle(combos)
+    selected = combos[:EXTRA_BENIGN_TARGET_SIZE]
+    return [
+        {"text": _clean_text(template.format(topic=topic)), "label": LABEL_NORMAL}
+        for template, topic in selected
+    ]
+
+
 def build_dataset() -> pd.DataFrame:
     rows = (
         _load_injection_source()
@@ -197,6 +325,8 @@ def build_dataset() -> pd.DataFrame:
         + _load_advbench_source()
         + _load_xstest_safe_source()
         + _load_extra_benign()
+        + _load_synthetic_pii_benign()
+        + _generate_extra_benign()
     )
     df = pd.DataFrame(rows)
 

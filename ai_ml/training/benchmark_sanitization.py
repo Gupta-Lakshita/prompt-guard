@@ -121,8 +121,23 @@ def write_report(rate, total, successes, failures):
     ]
 
     if failures:
+        phone_like_failures = sum(
+            1 for f in failures if any(any(c.isdigit() for c in v) and len(v) >= 9 for v in f["leaked"])
+        )
         lines.append(f"## Failures ({len(failures)})")
         lines.append("")
+        if phone_like_failures:
+            lines.append(
+                f"**Root cause, not just a tally:** {phone_like_failures}/{len(failures)} failures are "
+                "phone numbers in formats `detect_pii()` doesn't match — mainly Faker-generated numbers "
+                "with extensions (e.g. `311.279.8843x81667`) or international prefixes with extra "
+                "grouping. This is a real PII-detection coverage gap (Presidio's phone recognizer and "
+                "the regex fallback both miss these), not a sanitizer bug — whatever `detect_pii()` "
+                "doesn't find, `sanitize_prompt()` can't redact. Narrowing this would mean widening "
+                "`ai_ml/pii_detector.py`'s phone matching to cover extensions/international formats, "
+                "at the cost of some risk of new false positives — a real tradeoff, left open rather "
+                "than quietly patched to make this number look better.\n"
+            )
         lines.append("| Original | Leaked value(s) | Sanitized output |")
         lines.append("| --- | --- | --- |")
         for f in failures[:50]:  # cap report length

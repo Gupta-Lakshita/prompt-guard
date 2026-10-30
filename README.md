@@ -4,9 +4,8 @@
 detection in generative AI systems.**
 
 Micro Project build for `CSE4_PromptGuard_Synopsis_Final.md`. This document is written to
-double as the basis for the Micro Project report/presentation and as the planning baseline for
-the Mini stage — it states what was built, what was measured (with real numbers, not estimates),
-what fell short of a target and why, and what the concrete next steps are.
+double as the basis for the Micro Project report/presentation: what was built, what was
+measured (with real numbers, not estimates), and what fell short of a target and why.
 
 > **Live demo:** frontend on Vercel, backend on Render — see [Deployment](#deployment) for URLs
 > and setup, [DEPLOYMENT.md](DEPLOYMENT.md) for the full guide and a real incident writeup.
@@ -381,48 +380,7 @@ Not everything is done — listed plainly rather than omitted:
 
 ---
 
-## 12. Roadmap to the Mini Stage
-
-The synopsis's own roadmap (Section 5.7) frames the Mini stage as *"Can we build a usable
-security gateway?"* — concretely, building on exactly what this Micro build already has in
-place:
-
-1. **Close the two near-miss metrics directly.**
-   - JAILBREAK recall: either reassign JailbreakBench's harmful examples to PROMPT_INJECTION
-     for consistency with AdvBench's similar style (a one-line dataset-labelling change,
-     discuss with the team since it changes a documented source→class mapping), or add
-     short-form (non-roleplay) JAILBREAK examples so the class isn't defined almost entirely
-     by text length.
-   - Sanitization rate: widen `pii_detector.py`'s phone-number matching to cover extensions
-     and more international formats; re-run `benchmark_sanitization.py` to confirm.
-2. **Persistent database.** Swap SQLite for PostgreSQL (the synopsis's own Mini-stage target,
-   Section 8) — removes the "event log resets on redeploy" limitation noted in
-   `DEPLOYMENT.md`, and is a bounded, well-scoped first Mini-stage task.
-3. **Configurable policies.** The risk-score weights and decision thresholds are currently
-   hardcoded constants (`risk_scorer.py`, `decision_engine.py`) — externalize them (env vars or
-   a config table) so policy can be tuned without a redeploy.
-4. **REST API for third-party integration.** `POST /scan` already exists as the core primitive;
-   Mini-stage work here is auth (API keys), rate limiting, and OpenAPI docs polish — not a
-   rebuild.
-5. **Ship the real DistilBERT model to production**, not just the keyword-heuristic fallback —
-   requires either a paid Render tier (enough memory headroom for the ~260MB model) or hosting
-   the checkpoint externally (e.g. Hugging Face Hub) and downloading it at startup, which isn't
-   wired up yet.
-6. **Expand the dataset toward the full ~3,900-prompt target** — add the synopsis's remaining
-   named sources at full scale, informed by which classes/formats this build's benchmarks
-   already show are weakest (JAILBREAK short-form, certain phone formats) rather than adding
-   volume blindly.
-7. **Grow test coverage**: a frontend test suite (currently none), and dedicated coverage for
-   indirect/embedded injection (currently a named but untested threat category).
-
-Everything in this list is scoped against something this Micro build already measured, not a
-guess at what Mini-stage work might look like — the benchmarking infrastructure built here
-(`ai_ml/training/benchmark_*.py`, `evaluate.py`, `train_baseline.py`) is reusable as-is for
-tracking progress against each of these.
-
----
-
-## 13. Quickstart
+## 12. Quickstart
 
 ```bash
 # Backend (from repo root)
@@ -452,7 +410,7 @@ docker compose up --build   # http://localhost:8080
 
 ---
 
-## 14. Where to Look for More Detail
+## 13. Where to Look for More Detail
 
 - `ai_ml/aiml.md` — full dataset sourcing, training/eval commands, all metrics, confusion
   matrix, and a running log of known limitations (including ones found, fixed, and
